@@ -39,7 +39,9 @@ async def transcribe(file: UploadFile):
     transcription = main(tmp_path)
 
     # Nettoyer le fichier tmp
+    
     tmp_path.unlink(missing_ok=True)
+    tmp_path.with_suffix(".wav").unlink(True)
 
     return {
         "message": "Transcription effectuée avec succès",

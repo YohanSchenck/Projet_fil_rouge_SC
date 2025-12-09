@@ -2,3 +2,8 @@
 video/
 Projet_Fil_rouge.pdf
 venv/
+*.mp4
+*.srt
+*.wav
+*.txt
+*.pyc
