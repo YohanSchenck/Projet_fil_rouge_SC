@@ -40,6 +40,7 @@ def merge_subtitles(input_video: Path, subtitle_file: Path,
 
     if not embed:
         subs = ffmpeg.input(str(subtitle_file))
+        print("TEST")
         stream = ffmpeg.output(
             video,
             subs,
@@ -54,3 +55,4 @@ def merge_subtitles(input_video: Path, subtitle_file: Path,
         )
 
     ffmpeg.run(stream, overwrite_output=True)
+
