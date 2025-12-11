@@ -6,13 +6,18 @@ import ffmpeg
 
 from .utils import format_time
 
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+OUTPUT_DIR = BASE_DIR / "sous-titres"
+
 
 def generate_srt(transcription: dict, video_name: str) -> Path:
     text = ""
     offset = 0
 
-    transcription_output_path = Path("sous-titres/"+datetime.now().strftime("%Y%m%d")+video_name+".srt")
+    transcription_output_path = OUTPUT_DIR / (datetime.now().strftime("%Y%m%d")+video_name+".srt")
 
+    print(transcription_output_path)
     for index, chunk in enumerate(transcription["chunks"]):
         start = offset + chunk["timestamp"][0]
         end = offset + chunk["timestamp"][1]
