@@ -17,7 +17,7 @@ class Model:
             device=device
         )
 
-    def get_script_transcription(self,audio_path : Path):
+    def get_script_transcription(self,audio_path : bytes):
         return self._model(
         str(audio_path),
         chunk_length_s=28,

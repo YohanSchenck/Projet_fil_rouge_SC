@@ -14,3 +14,34 @@ def extract_audio(input_video: Path) -> Path:
 
     ffmpeg.run(stream, overwrite_output=True)
     return extracted_audio
+
+import io
+import subprocess
+
+
+def extract_audio_bytes(video_bytes: bytes) -> bytes:
+    """
+    Extrait un WAV depuis une vidéo en mémoire via FFmpeg.
+    """
+    process = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-i", "pipe:0",
+            "-vn",          # pas de vidéo
+            "-acodec", "pcm_s16le",
+            "-ar", "16000",
+            "-ac", "1",
+            "-f", "wav",
+            "pipe:1"
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    audio_bytes, err = process.communicate(video_bytes)
+
+    if process.returncode != 0:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {err.decode()}")
+
+    return audio_bytes

@@ -36,6 +36,26 @@ def generate_srt(transcription: dict, video_name: str) -> Path:
     logging.info(f"SRT generated: {transcription_output_path}")
     return transcription_output_path
 
+def generate_srt_bytes(transcription: dict) -> bytes:
+    text = ""
+    offset = 0
+
+    for index, chunk in enumerate(transcription["chunks"]):
+        start = offset + chunk["timestamp"][0]
+        end = offset + chunk["timestamp"][1]
+
+        if start > end:
+            offset += 28
+            continue
+
+        text += (
+            f"{index + 1}\n"
+            f"{format_time(start)} --> {format_time(end)}\n"
+            f"{chunk['text'].strip()}\n\n"
+        )
+
+    return text.encode("utf-8")
+
 
 def merge_subtitles(input_video: Path, subtitle_file: Path,
                     output_video: Path, embed: bool = False):

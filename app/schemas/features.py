@@ -1,7 +1,8 @@
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 
-class Features(BaseModel):
+class Input(BaseModel):
     # TODO : update with your model inputs
-    age: int
-    sexe : int
+    file: UploadFile
+    subtitle_embed: bool

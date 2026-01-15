@@ -5,9 +5,44 @@
 </head>
 <body>
     <h1>Transcrire une vidéo</h1>
-    <form action="/transcribe" method="post" enctype="multipart/form-data">
+
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
         <input type="file" name="file" accept="video/*" required>
+
+        <label>
+            <input type="checkbox" name="subtitle_embed"> Ajouter les sous titres à la vidéo
+        </label>
+
+        <br><br>
         <button type="submit">Transmettre</button>
     </form>
+
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById("uploadForm");
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            const response = await fetch("/transcribe", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+
+            let html = `<p>Transcription effectuée.</p>`;
+
+            if (data.download_srt) {
+                html += `<a href="${data.download_srt}" download>Télécharger les sous-titres (.srt)</a><br>`;
+            }
+
+            if (data.download_video) {
+                html += `<a href="${data.download_video}" download>Télécharger la vidéo sous-titrée</a><br>`;
+            }
+
+            document.getElementById("result").innerHTML = html;
+        });
+    </script>
 </body>
 </html>
