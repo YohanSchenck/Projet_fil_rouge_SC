@@ -1,52 +1,64 @@
-import tempfile
-from pathlib import Path
+import io
+import traceback
 
-from app.services._transcription import transcription
-from fastapi import APIRouter, FastAPI, Form, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from app.schemas.enums import ResponseType
+# Import de notre nouveau service et des enums
+from app.services._transcription import transcription_service
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 router = APIRouter()
-
 templates = Jinja2Templates(directory="app/routers/templates")
 
-# Page d’upload
 @router.get("/", response_class=HTMLResponse)
 async def upload_page(request: Request):
     return templates.TemplateResponse("upload.html", {"request": request})
 
-# Traitement de la vidéo
 @router.post("/transcribe", name="transcribe")
 async def transcribe(
     file: UploadFile, 
-    subtitle_embed: bool = Form(False)
+    response_type: ResponseType = Form(...) # L'utilisateur choisit via le formulaire
 ):
+    # 1. Validation basique
+    if not file:
+        raise HTTPException(status_code=400, detail="No file sent")
 
-    #input_folder = Path("video_input")
-    #input_folder.mkdir(exist_ok=True)
+    filename = file.filename
+    content_type = file.content_type
+    
+    # Détection Audio vs Vidéo
+    is_audio = "audio" in content_type
+    
+    # 2. Lecture en mémoire (Attention à la RAM pour gros fichiers)
+    # Pour un MVP c'est OK, pour la prod on pourrait streamer par chunks 
+    # mais ffmpeg a besoin de seek souvent.
+    file_bytes = await file.read() 
+    
+    try:
+        # 3. Appel du service
+        data, media_type, out_filename = await transcription_service(
+            file_bytes=file_bytes,
+            file_name=filename,
+            response_type=response_type,
+            is_audio_file=is_audio
+        )
 
-    # Lire le contenu
-    content = await file.read()
+        # 4. Retour du résultat sous forme de fichier téléchargeable
+        return StreamingResponse(
+            io.BytesIO(data), 
+            media_type=media_type, 
+            headers={
+                "Content-Disposition": f"attachment; filename={out_filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition" # Important pour le JS
+            }
+        )
 
-    # Stocker temporairement le fichier dans un fichier unique
-    #with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
-    #    tmp.write(content)
-    #    tmp_path = Path(tmp.name)
-
-    # Appel à ta fonction principale
-    transcription_output = await transcription(content, embed=subtitle_embed)
-
-    # Nettoyer le fichier tmp
-    #tmp_path.unlink(missing_ok=True)
-    #tmp_path.with_suffix(".wav").unlink(True)
-
-    return {
-        "message": "Transcription effectuée avec succès",
-        "transcription": transcription_output,
-        "input_file": file.filename
-    }
-
-
-
+    except Exception as e:
+        # Log l'erreur ici
+        #print(f"Error processing: {e}")
+        #raise HTTPException(status_code=500, detail="Processing failed")
+        print("--- STACKTRACE ERREUR ---")
+        traceback.print_exc() # Cela affichera la ligne exacte qui plante
+        raise HTTPException(status_code=500, detail=str(e))

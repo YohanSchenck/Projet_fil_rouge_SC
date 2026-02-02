@@ -1,1 +1,1 @@
-from ._transcription import transcription
+from ._transcription import transcription_service

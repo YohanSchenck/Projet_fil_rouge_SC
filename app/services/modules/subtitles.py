@@ -1,83 +1,104 @@
 import logging
-from datetime import datetime
-from pathlib import Path
+import os
+import subprocess
+import tempfile
 
-import ffmpeg
-
-from .utils import format_time
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-OUTPUT_DIR = BASE_DIR / "sous-titres"
+from .utils import format_time  # Assure-toi que cette fonction existe
 
 
-def generate_srt(transcription: dict, video_name: str) -> Path:
-    text = ""
-    offset = 0
-
-    transcription_output_path = OUTPUT_DIR / (datetime.now().strftime("%Y%m%d")+video_name+".srt")
-
-    print(transcription_output_path)
+def generate_srt_string(transcription: dict) -> str:
+    """Génère le contenu SRT sous forme de chaîne de caractères."""
+    text_content = ""
     for index, chunk in enumerate(transcription["chunks"]):
-        start = offset + chunk["timestamp"][0]
-        end = offset + chunk["timestamp"][1]
+        # Gestion basique des timestamps (à adapter selon le format exact de ton modèle)
+        start = chunk.get("timestamp", [0,0])[0]
+        end = chunk.get("timestamp", [0,0])[1]
+        
+        # Fallback si end est None ou invalide
+        if end is None: end = start + 2.0 
 
-        if start > end:
-            offset += 28
-            continue
-
-        text += (
+        text_content += (
             f"{index + 1}\n"
             f"{format_time(start)} --> {format_time(end)}\n"
             f"{chunk['text'].strip()}\n\n"
         )
+    return text_content
 
-    transcription_output_path.write_text(text, encoding="utf-8")
-    logging.info(f"SRT generated: {transcription_output_path}")
-    return transcription_output_path
+def merge_subtitles_soft(video_bytes: bytes, srt_content: str) -> bytes:
+    """
+    AJOUT DE METADATA (Soft Subs).
+    Incorpore le SRT comme un flux de texte dans le conteneur MP4 (activable/désactivable).
+    Tout se fait en mémoire via Pipes.
+    """
+    # Pour le soft sub, ffmpeg a besoin de deux entrées pipe
+    # C'est complexe avec subprocess simple car il n'y a qu'un stdin.
+    # Astuce : On écrit le SRT dans un fichier temporaire (très léger), 
+    # mais la vidéo reste en RAM.
+    
+    with tempfile.NamedTemporaryFile(suffix=".srt", delete=False, mode="w", encoding="utf-8") as tmp_srt:
+        tmp_srt.write(srt_content)
+        srt_path = tmp_srt.name
 
-def generate_srt_bytes(transcription: dict) -> bytes:
-    text = ""
-    offset = 0
+    try:
+        cmd = [
+            "ffmpeg",
+            "-i", "pipe:0",           # Entrée 0 : Vidéo (RAM)
+            "-i", srt_path,           # Entrée 1 : SRT (Fichier Temp)
+            "-c:v", "copy",           # Copie vidéo sans réencodage (Rapide)
+            "-c:a", "copy",           # Copie audio sans réencodage
+            "-c:s", "mov_text",       # Format sous-titre pour MP4
+            "-map", "0",              # Mapper tout le fichier 0
+            "-map", "1",              # Mapper le fichier 1
+            "-f", "mp4",              # Forcer le format MP4
+            "-movflags", "frag_keyframe+empty_moov", # Important pour le streaming/pipe
+            "pipe:1"
+        ]
 
-    for index, chunk in enumerate(transcription["chunks"]):
-        start = offset + chunk["timestamp"][0]
-        end = offset + chunk["timestamp"][1]
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out_bytes, err = process.communicate(input=video_bytes)
 
-        if start > end:
-            offset += 28
-            continue
+        if process.returncode != 0:
+            logging.error(f"Soft Merge Error: {err.decode()}")
+            raise RuntimeError("Erreur fusion sous-titres metadata.")
+        
+        return out_bytes
+    finally:
+        # Nettoyage immédiat du fichier SRT
+        if os.path.exists(srt_path):
+            os.remove(srt_path)
 
-        text += (
-            f"{index + 1}\n"
-            f"{format_time(start)} --> {format_time(end)}\n"
-            f"{chunk['text'].strip()}\n\n"
-        )
+def merge_subtitles_hard(video_bytes: bytes, srt_content: str) -> bytes:
+    """
+    INCRUSTATION VIDEO (Hard Subs / Embedded).
+    Réencode la vidéo pour brûler les pixels. Très couteux en CPU.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".srt", delete=False, mode="w", encoding="utf-8") as tmp_srt:
+        tmp_srt.write(srt_content)
+        srt_path = tmp_srt.name
+    
+    # Correction path pour ffmpeg (caractères spéciaux sous Windows/Linux parfois gênants)
+    srt_path_escaped = srt_path.replace("\\", "/").replace(":", "\\:")
 
-    return text.encode("utf-8")
+    try:
+        cmd = [
+            "ffmpeg",
+            "-i", "pipe:0",
+            # Le filtre subtitles requiert un fichier physique dans la plupart des builds
+            "-vf", f"subtitles='{srt_path_escaped}'", 
+            "-f", "mp4",
+            "-movflags", "frag_keyframe+empty_moov",
+            "pipe:1"
+        ]
+        
+        process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out_bytes, err = process.communicate(input=video_bytes)
 
+        if process.returncode != 0:
+            logging.error(f"Hard Merge Error: {err.decode()}")
+            raise RuntimeError("Erreur incrustation vidéo.")
+            
+        return out_bytes
 
-def merge_subtitles(input_video: Path, subtitle_file: Path,
-                    output_video: Path, embed: bool = False):
-    logging.info("Merging subtitles into video...")
-
-    video = ffmpeg.input(str(input_video))
-
-    if not embed:
-        subs = ffmpeg.input(str(subtitle_file))
-        print("TEST")
-        stream = ffmpeg.output(
-            video,
-            subs,
-            str(output_video),
-            **{"c": "copy", "c:s": "mov_text"}
-        )
-    else:
-        stream = ffmpeg.output(
-            video,
-            str(output_video),
-            vf=f"subtitles={str(subtitle_file)}"
-        )
-
-    ffmpeg.run(stream, overwrite_output=True)
-
+    finally:
+        if os.path.exists(srt_path):
+            os.remove(srt_path)

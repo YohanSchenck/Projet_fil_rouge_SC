@@ -17,10 +17,12 @@ class Model:
             device=device
         )
 
-    def get_script_transcription(self,audio_path : bytes):
+    def get_script_transcription(self,audio_data):
+        audio_input = {"raw": audio_data, "sampling_rate": 16000}
         return self._model(
-        str(audio_path),
+        audio_input,
         chunk_length_s=28,
+        batch_size=8,
         return_timestamps=True
     )
 

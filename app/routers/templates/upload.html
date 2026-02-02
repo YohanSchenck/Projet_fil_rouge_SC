@@ -1,47 +1,267 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Upload Video</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA Transcription Video</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --primary-hover: #4338ca;
+            --bg-color: #F3F4F6;
+            --card-bg: #ffffff;
+            --text-color: #1F2937;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area {
+            border: 2px dashed #D1D5DB;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: #EEF2FF;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .option-card {
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option-card:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* Masquer le bouton radio natif mais garder la logique */
+        input[type="radio"] {
+            margin-right: 8px;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: #9CA3AF;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #F9FAFB;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+            display: none; /* Caché par défaut */
+            white-space: pre-wrap; /* Pour afficher le texte proprement */
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-    <h1>Transcrire une vidéo</h1>
 
-    <form id="uploadForm" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept="video/*" required>
+    <div class="container">
+        <h1>Studio de Transcription</h1>
 
-        <label>
-            <input type="checkbox" name="subtitle_embed"> Ajouter les sous titres à la vidéo
-        </label>
+        <form id="uploadForm">
+            <div class="upload-area" id="dropZone">
+                <p>Glissez votre fichier vidéo/audio ici</p>
+                <small>ou cliquez pour parcourir</small>
+                <input type="file" name="file" id="fileInput" accept="video/*,audio/*" required style="display: none;">
+                <p id="fileName" style="font-weight: bold; color: var(--primary-color); margin-top: 10px;"></p>
+            </div>
 
-        <br><br>
-        <button type="submit">Transmettre</button>
-    </form>
+            <p>Type de résultat souhaité :</p>
+            <div class="options-grid">
+                <label class="option-card">
+                    <input type="radio" name="response_type" value="text" checked> 
+                    Texte Brut
+                </label>
+                <label class="option-card">
+                    <input type="radio" name="response_type" value="srt"> 
+                    Fichier .SRT
+                </label>
+                <label class="option-card">
+                    <input type="radio" name="response_type" value="video_soft"> 
+                    Vidéo + Métadonnée
+                </label>
+                <label class="option-card">
+                    <input type="radio" name="response_type" value="video_hard"> 
+                    Vidéo Incrustée
+                </label>
+            </div>
 
-    <div id="result"></div>
+            <button type="submit" id="submitBtn">
+                <span id="btnText">Lancer le traitement</span>
+                <div class="loader" id="loader"></div>
+            </button>
+        </form>
+
+        <div id="result"></div>
+    </div>
 
     <script>
         const form = document.getElementById("uploadForm");
+        const fileInput = document.getElementById("fileInput");
+        const dropZone = document.getElementById("dropZone");
+        const fileNameDisplay = document.getElementById("fileName");
+        const resultDiv = document.getElementById("result");
+        const submitBtn = document.getElementById("submitBtn");
+        const loader = document.getElementById("loader");
+        const btnText = document.getElementById("btnText");
+
+        // Gestion Drag & Drop
+        dropZone.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length > 0) fileNameDisplay.textContent = fileInput.files[0].name;
+        });
+
+        ["dragenter", "dragover"].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add("dragover");
+            });
+        });
+
+        ["dragleave", "drop"].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dragover");
+            });
+        });
+
+        dropZone.addEventListener("drop", (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                fileNameDisplay.textContent = files[0].name;
+            }
+        });
+
+        // Soumission du formulaire
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
+            
+            // UI Loading state
+            submitBtn.disabled = true;
+            btnText.style.display = "none";
+            loader.style.display = "block";
+            resultDiv.style.display = "none";
+            resultDiv.textContent = "";
 
             const formData = new FormData(form);
-            const response = await fetch("/transcribe", {
-                method: "POST",
-                body: formData
-            });
-            const data = await response.json();
 
-            let html = `<p>Transcription effectuée.</p>`;
+            try {
+                const response = await fetch("/transcribe", {
+                    method: "POST",
+                    body: formData
+                });
 
-            if (data.download_srt) {
-                html += `<a href="${data.download_srt}" download>Télécharger les sous-titres (.srt)</a><br>`;
+                if (!response.ok) throw new Error("Erreur lors du traitement");
+
+                // On traite TOUT comme un fichier (Blob)
+                const blob = await response.blob();
+                
+                // Récupération du nom de fichier via les headers
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = "resultat.txt";
+                if (disposition && disposition.includes('filename=')) {
+                    filename = disposition.split('filename=')[1].replace(/['"]/g, '');
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+                resultDiv.style.display = "block";
+                resultDiv.style.color = "green";
+                resultDiv.textContent = `Succès ! Fichier téléchargé : ${filename}`;
+
+            } catch (error) {
+                resultDiv.style.display = "block";
+                resultDiv.textContent = "Erreur : " + error.message;
+                resultDiv.style.color = "red";
+            } finally {
+                // UI Reset state
+                submitBtn.disabled = false;
+                btnText.style.display = "block";
+                loader.style.display = "none";
             }
-
-            if (data.download_video) {
-                html += `<a href="${data.download_video}" download>Télécharger la vidéo sous-titrée</a><br>`;
-            }
-
-            document.getElementById("result").innerHTML = html;
         });
     </script>
 </body>
