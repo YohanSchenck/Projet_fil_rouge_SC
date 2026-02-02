@@ -9,19 +9,25 @@ from .utils import format_time  # Assure-toi que cette fonction existe
 def generate_srt_string(transcription: dict) -> str:
     """Génère le contenu SRT sous forme de chaîne de caractères."""
     text_content = ""
-    for index, chunk in enumerate(transcription["chunks"]):
-        # Gestion basique des timestamps (à adapter selon le format exact de ton modèle)
-        start = chunk.get("timestamp", [0,0])[0]
-        end = chunk.get("timestamp", [0,0])[1]
-        
-        # Fallback si end est None ou invalide
-        if end is None: end = start + 2.0 
+    segments = transcription.get("segments", [])
 
+    if not segments:
+        logging.warning("Aucun segment trouvé dans la transcription du serveur d'inférence.")
+        return ""
+
+    for index, segment in enumerate(segments):
+        # Le serveur d'inférence fournit directement 'start' et 'end' en secondes (float)
+        start = segment.get("start", 0.0)
+        end = segment.get("end", start + 2.0) # Fallback de 2s si 'end' est absent
+        text = segment.get("text", "").strip()
+
+        # Construction du bloc SRT avec l'index, le temps formaté et le texte
         text_content += (
             f"{index + 1}\n"
             f"{format_time(start)} --> {format_time(end)}\n"
-            f"{chunk['text'].strip()}\n\n"
+            f"{text}\n\n"
         )
+        
     return text_content
 
 def merge_subtitles_soft(video_bytes: bytes, srt_content: str) -> bytes:

@@ -1,0 +1,80 @@
+services:
+  # 1. Base de données PostgreSQL
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: transcription_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Le Load Balancer (Nginx) - Il distribue les requêtes aux workers
+  inference-lb:
+    image: nginx:alpine
+    container_name: whisper-lb
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8001:80" # On garde le port 8001 pour tes tests externes
+    depends_on:
+      - inference-worker
+
+  # 3. Les Workers d'inférence (Réplicas de Faster-Whisper)
+  inference-worker:
+      image: fedirz/faster-whisper-server:latest-cpu
+      environment:
+        - WHISPER_MODEL=small
+        - WHISPER_DEVICE=cpu
+        - WHISPER_COMPUTE_TYPE=int8 # On force l'int8
+        - OMP_NUM_THREADS=2 
+        - OPENBLAS_NUM_THREADS=2
+      deploy:
+        replicas: 2 # Réduis à 2 le temps du test pour libérer de la RAM globale
+        resources:
+          limits:
+            cpus: '2.0'
+            memory: 3G
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+        interval: 20s # Laisse plus de temps au démarrage (ton log montre 70s pour charger)
+        timeout: 10s
+        retries: 5
+
+  # 4. Ton API FastAPI
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/transcription_db
+      # L'API pointe vers le Load Balancer (port 80 interne)
+      - INFERENCE_SERVER_URL=http://inference-lb:80/v1/audio/transcriptions
+    depends_on:
+      - db
+      - inference-lb
+
+  # 5. Observabilité
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+  
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_storage:/var/lib/grafana
+      - ./grafana_provisioning:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  grafana_storage:

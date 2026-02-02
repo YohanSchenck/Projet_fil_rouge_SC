@@ -1,1 +1,1 @@
-from ._model import get_model
+from ._model import ModelClient

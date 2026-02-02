@@ -1,8 +1,9 @@
 import io
 import logging
+import time
 
 import numpy as np
-from app.ressources import get_model
+from app.ressources import ModelClient
 from app.schemas.enums import ResponseType
 from app.services.modules.audio import extract_audio_bytes
 from app.services.modules.subtitles import (generate_srt_string,
@@ -10,8 +11,6 @@ from app.services.modules.subtitles import (generate_srt_string,
                                             merge_subtitles_soft)
 from scipy.io import wavfile
 
-# On suppose que tu as un singleton ou un gestionnaire de modèle chargé
-# from app.core.config import APICONFIG 
 
 async def transcription_service(
     file_bytes: bytes, 
@@ -22,6 +21,7 @@ async def transcription_service(
     """
     Orchestre le process : Bytes -> Audio -> Texte -> Résultat formaté
     """
+
     logging.info(f"Start processing {file_name} for {response_type}")
 
     # 1. Préparer l'audio pour le modèle
@@ -41,12 +41,14 @@ async def transcription_service(
 
     # 3. Inférence (Modèle chargé en mémoire)
     # Note: get_model(-1) suppose CPU, ajuster selon ta config
-    model = get_model(-1) 
-    
+    #model = get_model(-1) 
+    inference_client = ModelClient()
+
     # Attention: ton model.get_script_transcription doit accepter des bytes ou un np.array
     # Si ton modèle attend un fichier path, il faudra utiliser io.BytesIO
     # Supposons qu'il accepte les bytes bruts du WAV :
-    result = model.get_script_transcription(audio_np)
+    #result = model.get_script_transcription(audio_np)
+    result = await inference_client.get_script_transcription_remote(audio_bytes)
     
     # 4. Traitement de la sortie
     if response_type == ResponseType.TEXT:

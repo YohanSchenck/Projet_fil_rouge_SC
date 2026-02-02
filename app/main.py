@@ -5,10 +5,10 @@ sys.path.append(os.getcwd())
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.v1 import API_ROUTERS
 from app.core import APICONFIG
-from app.core.event_handlers import model_lifespan
 
 origins = [
     "http://localhost",
@@ -17,7 +17,7 @@ origins = [
 
 
 def get_app() -> FastAPI:
-    fast_app = FastAPI(title=APICONFIG.name, version=APICONFIG.version, lifespan=model_lifespan)
+    fast_app = FastAPI(title=APICONFIG.name, version=APICONFIG.version)
     fast_app.include_router(API_ROUTERS, prefix=APICONFIG.api_prefix)
     fast_app.add_middleware(
         CORSMiddleware,
@@ -25,10 +25,14 @@ def get_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    Instrumentator().instrument(fast_app).expose(fast_app)
     return fast_app
 
 
+
 app = get_app()
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app,
