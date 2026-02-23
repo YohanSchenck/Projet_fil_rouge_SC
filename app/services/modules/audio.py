@@ -27,7 +27,7 @@ def extract_audio_bytes(video_bytes: bytes) -> bytes:
         process = subprocess.Popen(
             [
                 "ffmpeg",
-                "-threads", "0",        # Utiliser tous les coeurs
+                "-threads", "1",        # Utiliser tous les coeurs
                 "-i", "pipe:0",         # Entrée depuis la RAM
                 "-vn",                  # Pas de vidéo
                 "-acodec", "pcm_s16le", # Format WAV standard pour l'IA

@@ -21,7 +21,7 @@ class ModelClient:
             # 2. MISE À JOUR : 'model' doit correspondre à ce que Faster-Whisper attend
             # Souvent, faster-whisper-server accepte n'importe quelle chaîne ou 'distil-small'
             data = {
-                'model': 'small', 
+                'model': 'tiny', 
                 'response_format': 'verbose_json',
                 'temperature': '0.0'
             }

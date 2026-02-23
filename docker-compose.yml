@@ -24,13 +24,13 @@ services:
   inference-worker:
       image: fedirz/faster-whisper-server:latest-cpu
       environment:
-        - WHISPER_MODEL=small
+        - WHISPER_MODEL=tiny
         - WHISPER_DEVICE=cpu
         - WHISPER_COMPUTE_TYPE=int8 # On force l'int8
         - OMP_NUM_THREADS=1
         - OPENBLAS_NUM_THREADS=1
       deploy:
-        replicas: 2 # Réduis à 2 le temps du test pour libérer de la RAM globale
+        replicas: 3 
         resources:
           limits:
             cpus: '2.0'
