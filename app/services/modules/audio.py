@@ -1,4 +1,5 @@
 import logging
+import re
 import subprocess
 from pathlib import Path
 
@@ -17,7 +18,7 @@ def extract_audio(input_video: Path) -> Path:
     return extracted_audio
 
 
-def extract_audio_bytes(video_bytes: bytes) -> bytes:
+def extract_audio_bytes(video_bytes: bytes) -> tuple[bytes, float]:
     """
     Extrait la piste audio d'une vidéo (en bytes) vers du WAV (en bytes)
     via les pipes FFmpeg, sans écrire sur le disque.
@@ -43,12 +44,19 @@ def extract_audio_bytes(video_bytes: bytes) -> bytes:
         
         # On envoie les bytes de la vidéo et on récupère le résultat
         audio_output, err = process.communicate(input=video_bytes)
-
+        stderr_text = err.decode()
+        
         if process.returncode != 0:
             logging.error(f"FFmpeg Error: {err.decode()}")
             raise RuntimeError("Erreur lors de l'extraction audio via FFmpeg.")
 
-        return audio_output
+        duration = 0.0
+        match = re.search(r"Duration:\s(\d+):(\d+):(\d+\.\d+)", stderr_text)
+        if match:
+            h, m, s = match.groups()
+            duration = int(h) * 3600 + int(m) * 60 + float(s)
+
+        return audio_output,duration
 
     except Exception as e:
         logging.error(f"Exception in extract_audio_bytes: {str(e)}")

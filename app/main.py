@@ -5,6 +5,7 @@ sys.path.append(os.getcwd())
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import Counter, Histogram, make_asgi_app
 
 from app.api.v1 import API_ROUTERS
 from app.core import APICONFIG
@@ -24,7 +25,10 @@ def get_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    Instrumentator().instrument(fast_app).expose(fast_app)
+    
+    metrics_app = make_asgi_app()
+    fast_app.mount("/metrics", metrics_app)
+
     return fast_app
 
 
