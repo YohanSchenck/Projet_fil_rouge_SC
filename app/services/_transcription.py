@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import time
@@ -9,7 +10,10 @@ from app.services.modules.audio import extract_audio_bytes
 from app.services.modules.subtitles import (generate_srt_string,
                                             merge_subtitles_hard,
                                             merge_subtitles_soft)
+from fastapi.concurrency import run_in_threadpool
 from scipy.io import wavfile
+
+ai_semaphore = asyncio.Semaphore(2)
 
 
 async def transcription_service(
@@ -39,16 +43,11 @@ async def transcription_service(
         # Normalisation : transformer les entiers 16-bit en flottants entre -1 et 1
         audio_np = data.astype(np.float32) / 32768.0
 
-    # 3. Inférence (Modèle chargé en mémoire)
-    # Note: get_model(-1) suppose CPU, ajuster selon ta config
-    #model = get_model(-1) 
+    # 3. Inférence (appel aux workers)
     inference_client = ModelClient()
 
-    # Attention: ton model.get_script_transcription doit accepter des bytes ou un np.array
-    # Si ton modèle attend un fichier path, il faudra utiliser io.BytesIO
-    # Supposons qu'il accepte les bytes bruts du WAV :
-    #result = model.get_script_transcription(audio_np)
-    result = await inference_client.get_script_transcription_remote(audio_bytes)
+    async with ai_semaphore:
+        result = await inference_client.get_script_transcription_remote(audio_bytes)
     
     # 4. Traitement de la sortie
     if response_type == ResponseType.TEXT:

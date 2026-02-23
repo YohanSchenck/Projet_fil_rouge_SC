@@ -27,8 +27,8 @@ services:
         - WHISPER_MODEL=small
         - WHISPER_DEVICE=cpu
         - WHISPER_COMPUTE_TYPE=int8 # On force l'int8
-        - OMP_NUM_THREADS=2 
-        - OPENBLAS_NUM_THREADS=2
+        - OMP_NUM_THREADS=1
+        - OPENBLAS_NUM_THREADS=1
       deploy:
         replicas: 2 # Réduis à 2 le temps du test pour libérer de la RAM globale
         resources:
