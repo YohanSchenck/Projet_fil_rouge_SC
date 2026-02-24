@@ -1,15 +1,5 @@
 services:
-  # 1. Base de données PostgreSQL
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: transcription_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  # 2. Le Load Balancer (Nginx) - Il distribue les requêtes aux workers
+  # 1. Le Load Balancer (Nginx) - Il distribue les requêtes aux workers
   inference-lb:
     image: nginx:alpine
     container_name: whisper-lb
@@ -20,7 +10,7 @@ services:
     depends_on:
       - inference-worker
 
-  # 3. Les Workers d'inférence (Réplicas de Faster-Whisper)
+  # 2. Les Workers d'inférence (Réplicas de Faster-Whisper)
   inference-worker:
       image: fedirz/faster-whisper-server:latest-cpu
       environment:
@@ -41,7 +31,7 @@ services:
         timeout: 10s
         retries: 5
 
-  # 4. Ton API FastAPI
+  # 3. Ton API FastAPI
   api:
     build: .
     ports:
@@ -51,10 +41,9 @@ services:
       # L'API pointe vers le Load Balancer (port 80 interne)
       - INFERENCE_SERVER_URL=http://inference-lb:80/v1/audio/transcriptions
     depends_on:
-      - db
       - inference-lb
 
-  # 5. Observabilité
+  # 4. Observabilité
   prometheus:
     image: prom/prometheus
     volumes:
@@ -71,7 +60,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_storage:/var/lib/grafana
-      - ./grafana_provisioning:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/datasource:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards/json
     depends_on:
       - prometheus
 

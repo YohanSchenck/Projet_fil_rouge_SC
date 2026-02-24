@@ -4,8 +4,8 @@ import traceback
 from app.schemas.enums import ResponseType
 # Import de notre nouveau service et des enums
 from app.services._transcription import transcription_service
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import APIRouter, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 

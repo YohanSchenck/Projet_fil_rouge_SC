@@ -11,7 +11,6 @@ from app.services.modules.subtitles import (generate_srt_string,
                                             merge_subtitles_soft)
 from fastapi.concurrency import run_in_threadpool
 from prometheus_client import Counter, Histogram
-from scipy.io import wavfile
 
 # On garde le sémaphore pour ne pas saturer les workers Whisper
 ai_semaphore = asyncio.Semaphore(3)
