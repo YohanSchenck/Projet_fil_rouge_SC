@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IA Transcription Video</title>
+    <title>Studio de Transcription IA</title>
     <style>
         :root {
             --primary-color: #4F46E5;
@@ -11,6 +11,7 @@
             --bg-color: #F3F4F6;
             --card-bg: #ffffff;
             --text-color: #1F2937;
+            --disabled-bg: #E5E7EB;
         }
 
         body {
@@ -67,13 +68,22 @@
             padding: 10px;
             cursor: pointer;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
         }
 
         .option-card:hover {
             border-color: var(--primary-color);
         }
 
-        /* Masquer le bouton radio natif mais garder la logique */
+        /* État désactivé pour les options vidéo si fichier audio */
+        .option-card.disabled {
+            opacity: 0.4;
+            background-color: var(--disabled-bg);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         input[type="radio"] {
             margin-right: 8px;
         }
@@ -106,8 +116,8 @@
             background-color: #F9FAFB;
             border-radius: 6px;
             border-left: 4px solid var(--primary-color);
-            display: none; /* Caché par défaut */
-            white-space: pre-wrap; /* Pour afficher le texte proprement */
+            display: none;
+            white-space: pre-wrap;
         }
 
         .loader {
@@ -134,7 +144,7 @@
 
         <form id="uploadForm">
             <div class="upload-area" id="dropZone">
-                <p>Glissez votre fichier vidéo/audio ici</p>
+                <p>Glissez votre fichier vidéo ou audio ici</p>
                 <small>ou cliquez pour parcourir</small>
                 <input type="file" name="file" id="fileInput" accept="video/*,audio/*" required style="display: none;">
                 <p id="fileName" style="font-weight: bold; color: var(--primary-color); margin-top: 10px;"></p>
@@ -150,12 +160,12 @@
                     <input type="radio" name="response_type" value="srt"> 
                     Fichier .SRT
                 </label>
-                <label class="option-card">
-                    <input type="radio" name="response_type" value="video_soft"> 
+                <label class="option-card video-only">
+                    <input type="radio" name="response_type" value="video_metadata"> 
                     Vidéo + Métadonnée
                 </label>
-                <label class="option-card">
-                    <input type="radio" name="response_type" value="video_hard"> 
+                <label class="option-card video-only">
+                    <input type="radio" name="response_type" value="video_embedded"> 
                     Vidéo Incrustée
                 </label>
             </div>
@@ -178,13 +188,40 @@
         const submitBtn = document.getElementById("submitBtn");
         const loader = document.getElementById("loader");
         const btnText = document.getElementById("btnText");
+        const videoOptions = document.querySelectorAll('.video-only');
 
-        // Gestion Drag & Drop
+        // Fonction pour valider le type de fichier et brider les options
+        function handleFileSelection(file) {
+            if (!file) return;
+
+            fileNameDisplay.textContent = file.name;
+            const isAudio = file.type.startsWith('audio/');
+            const textOption = document.querySelector('input[value="text"]');
+
+            if (isAudio) {
+                videoOptions.forEach(opt => {
+                    opt.classList.add('disabled');
+                    const radio = opt.querySelector('input');
+                    radio.disabled = true;
+                    // Reset si une option vidéo était déjà sélectionnée
+                    if (radio.checked) textOption.checked = true;
+                });
+            } else {
+                videoOptions.forEach(opt => {
+                    opt.classList.remove('disabled');
+                    opt.querySelector('input').disabled = false;
+                });
+            }
+        }
+
+        // Événements de sélection de fichier
         dropZone.addEventListener("click", () => fileInput.click());
+        
         fileInput.addEventListener("change", () => {
-            if (fileInput.files.length > 0) fileNameDisplay.textContent = fileInput.files[0].name;
+            if (fileInput.files.length > 0) handleFileSelection(fileInput.files[0]);
         });
 
+        // Gestion Drag & Drop
         ["dragenter", "dragover"].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
@@ -203,7 +240,7 @@
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 fileInput.files = files;
-                fileNameDisplay.textContent = files[0].name;
+                handleFileSelection(files[0]);
             }
         });
 
@@ -211,12 +248,10 @@
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
             
-            // UI Loading state
             submitBtn.disabled = true;
             btnText.style.display = "none";
             loader.style.display = "block";
             resultDiv.style.display = "none";
-            resultDiv.textContent = "";
 
             const formData = new FormData(form);
 
@@ -226,14 +261,12 @@
                     body: formData
                 });
 
-                if (!response.ok) throw new Error("Erreur lors du traitement");
+                if (!response.ok) throw new Error("Erreur serveur lors du traitement.");
 
-                // On traite TOUT comme un fichier (Blob)
                 const blob = await response.blob();
-                
-                // Récupération du nom de fichier via les headers
                 const disposition = response.headers.get('Content-Disposition');
-                let filename = "resultat.txt";
+                let filename = "resultat_transcription";
+
                 if (disposition && disposition.includes('filename=')) {
                     filename = disposition.split('filename=')[1].replace(/['"]/g, '');
                 }
@@ -254,10 +287,9 @@
 
             } catch (error) {
                 resultDiv.style.display = "block";
-                resultDiv.textContent = "Erreur : " + error.message;
                 resultDiv.style.color = "red";
+                resultDiv.textContent = "Erreur : " + error.message;
             } finally {
-                // UI Reset state
                 submitBtn.disabled = false;
                 btnText.style.display = "block";
                 loader.style.display = "none";

@@ -25,11 +25,7 @@ async def transcribe(
     if not file:
         raise HTTPException(status_code=400, detail="No file sent")
 
-    filename = file.filename
-    content_type = file.content_type
-    
-    # Détection Audio vs Vidéo
-    is_audio = "audio" in content_type
+    filename = file.filename.rsplit( ".", 1 )[0]
     
     # 2. Lecture en mémoire (Attention à la RAM pour gros fichiers)
     # Pour un MVP c'est OK, pour la prod on pourrait streamer par chunks 
@@ -42,7 +38,6 @@ async def transcribe(
             file_bytes=file_bytes,
             file_name=filename,
             response_type=response_type,
-            is_audio_file=is_audio
         )
 
         # 4. Retour du résultat sous forme de fichier téléchargeable

@@ -39,7 +39,6 @@ async def transcription_service(
     file_bytes: bytes, 
     file_name: str, 
     response_type: ResponseType,
-    is_audio_file: bool = False
 ):
     logging.info(f"Start processing {file_name} for {response_type}")
     start_time = time.time()
@@ -64,23 +63,19 @@ async def transcription_service(
         if response_type == ResponseType.TEXT:
             raw_text = result.get("text", "").strip()
             return raw_text.encode("utf-8"), "text/plain", f"{file_name}.txt"
+        else:
+            srt_content = generate_srt_string(result)
+            match response_type:
+                case ResponseType.SRT:
+                    return srt_content.encode('utf-8'), "application/x-subrip", f"{file_name}.srt"
+                
+                case ResponseType.VIDEO_METADATA:
+                    video_out = await run_in_threadpool(merge_subtitles_soft, file_bytes, srt_content)
+                    return video_out, "video/mp4", f"{file_name}_with_metadata.mp4"
 
-        srt_content = generate_srt_string(result)
-
-        if response_type == ResponseType.SRT or is_audio_file:
-            return srt_content.encode('utf-8'), "application/x-subrip", f"{file_name}.srt"
-
-        if response_type == ResponseType.VIDEO_METADATA:
-            # Soft subs : On délègue au threadpool car FFmpeg est appelé
-            video_out = await run_in_threadpool(merge_subtitles_soft, file_bytes, srt_content)
-            return video_out, "video/mp4", f"soft_{file_name}.mp4"
-
-        if response_type == ResponseType.VIDEO_EMBEDDED:
-            # Hard subs : TRÈS lourd, déléguer au threadpool est vital ici
-            video_out = await run_in_threadpool(merge_subtitles_hard, file_bytes, srt_content)
-            return video_out, "video/mp4", f"hard_{file_name}.mp4"
-
-        return None, None, None
+                case ResponseType.VIDEO_EMBEDDED:
+                    video_out = await run_in_threadpool(merge_subtitles_hard, file_bytes, srt_content)
+                    return video_out, "video/mp4", f"embedded_{file_name}.mp4"
     
     except Exception as e:
         # En cas d'erreur :
