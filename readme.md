@@ -1,6 +1,35 @@
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-# pip install transformers
-# pip install datasets
-# pip install librosa
-# pip3 install ffmpeg-python
-# necessite ffmepg installé. Sous windows, utiliser winget install ffmpeg et reboot (ou wsl)
+# Description du projet
+Ce projet vise à mettre en place un service de transcription de fichiers audio ou vidéo. L'utilisateur a ainsi la possiblité de récupérer l'audio de l'input en brut (txt ou srt) ou directement inclus dans le fichier transmis (embedded ou metadata). 
+
+# Configuration minimun requise
+Le projet doit être lancé avec les composants suivants (modèle tiny) :
+* 6 GB de RAM
+* 6 CPUs
+
+# Init et lancement du projet
+
+```
+docker compose up --build
+```
+
+# Accès au site
+La page principale est disponible à l'adresse suivante : **http://localhost:8000**
+
+# Monitoring
+Une page Grafana est disponible à cette adresse **http://localhost:3000**.
+Identifiants Grafana : (**user : admin** & **mdp : admin**) 
+
+Les metrics Prometheus sont disponibles ici **http://localhost:8000/metrics/**
+
+# Arrêt du service
+```
+docker compose stop
+```
+
+# Arrêt du service et suppression des containers
+```
+docker compose down -v
+```
+
+# Notes pour les utilisateurs
+* Le projet utilise une image Faster Whisper basé sur un usage entièrement CPU. Le changement du modèle doit être indiqué dans les fichiers **docker-compose** (image faster whisper) & **_model.py**
