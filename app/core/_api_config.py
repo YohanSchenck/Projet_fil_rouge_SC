@@ -7,22 +7,17 @@ from starlette.datastructures import Secret
 
 @dataclass
 class ApiConfig:
-    version:str = "0.0.1"
-    name:str = "Transcription fichiers audio"
-    api_prefix:str = ""
-    api_key: Secret = "foobar"
-    log_level: str = "debug"
-    default_device:int = -1
+    version: str = "1.0.0" # Tu peux passer en 1.0 !
+    name: str = "Transcription fichiers audio"
+    api_prefix: str = ""
+    log_level: str = "info"
     port: int = 8088
-    ip: str = "localhost"
+    ip: str = "localhost" # Préférable pour Docker
 
     def __post_init__(self):
-        # load some parameters from .env
         config = Config(".env")
         self.api_key = config("API_KEY", cast=Secret)
-        self.log_level = config("LOG_LEVEL")
-        self.default_device = int(config("DEFAULT_DEVICE"))
-
+        self.log_level = config("LOG_LEVEL", default="info")
 
 # Singleton can be used for configuration
 APICONFIG = ApiConfig()

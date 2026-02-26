@@ -2,7 +2,6 @@ import io
 import traceback
 
 from app.schemas.enums import ResponseType
-# Import de notre nouveau service et des enums
 from app.services._transcription import transcription_service
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -27,9 +26,7 @@ async def transcribe(
 
     filename = file.filename.rsplit( ".", 1 )[0]
     
-    # 2. Lecture en mémoire (Attention à la RAM pour gros fichiers)
-    # Pour un MVP c'est OK, pour la prod on pourrait streamer par chunks 
-    # mais ffmpeg a besoin de seek souvent.
+    # 2. Lecture en mémoire 
     file_bytes = await file.read() 
     
     try:
@@ -46,14 +43,11 @@ async def transcribe(
             media_type=media_type, 
             headers={
                 "Content-Disposition": f"attachment; filename={out_filename}",
-                "Access-Control-Expose-Headers": "Content-Disposition" # Important pour le JS
+                "Access-Control-Expose-Headers": "Content-Disposition" 
             }
         )
 
     except Exception as e:
-        # Log l'erreur ici
-        #print(f"Error processing: {e}")
-        #raise HTTPException(status_code=500, detail="Processing failed")
         print("--- STACKTRACE ERREUR ---")
         traceback.print_exc() # Cela affichera la ligne exacte qui plante
         raise HTTPException(status_code=500, detail=str(e))

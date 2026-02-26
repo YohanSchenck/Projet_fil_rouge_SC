@@ -9,14 +9,14 @@ services:
         - WHISPER_CPU_THREADS=3
         - WHISPER_WORKERS=2
       deploy:
-        replicas: 1 #Remettre 3 si test non fructuant  
+        replicas: 1 
         resources:
           limits:
             cpus: '6.0'
             memory: 5G
       healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-        interval: 20s # Laisse plus de temps au démarrage (ton log montre 70s pour charger)
+        interval: 20s
         timeout: 10s
         retries: 5
 
@@ -27,8 +27,6 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/transcription_db
-      # L'API pointe vers le Load Balancer (port 80 interne)
-      - INFERENCE_SERVER_URL=http://inference-lb:80/v1/audio/transcriptions
 
   # 3. Observabilité
   prometheus:

@@ -25,7 +25,7 @@ origins = [
 async def lifespan(app: FastAPI):
     # Code exécuté au DEMARRAGE
     task = asyncio.create_task(batch_processor())
-    print("🚀 Batch Processor démarré en arrière-plan.")
+    print("Batch Processor démarré en arrière-plan.")
     
     yield  # Ici, l'application tourne...
     
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     try:
         await task
     except asyncio.CancelledError:
-        print("🛑 Batch Processor arrêté proprement.")
+        print("Batch Processor arrêté proprement.")
 
 def get_app() -> FastAPI:
     fast_app = FastAPI(title=APICONFIG.name, version=APICONFIG.version, lifespan=lifespan)

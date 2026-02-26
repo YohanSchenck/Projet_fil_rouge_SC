@@ -4,14 +4,13 @@ import time
 
 from app.ressources import ModelClient
 
-# UNE SEULE INSTANCE ICI
 transcription_queue = asyncio.Queue()
 
 async def batch_processor():
-    logging.info("🚀 Batch Processor : Démarrage du worker...")
+    logging.info("Batch Processor : Démarrage du worker...")
     client = ModelClient()
-    BATCH_WINDOW = 5  
-    MAX_BATCH_SIZE = 2  
+    BATCH_WINDOW = 5  #temps en secondes
+    MAX_BATCH_SIZE = 2  #Aligné sur le nombre de worker fasterwhisper
 
     while True:
         # 1. On attend la première tâche
@@ -19,7 +18,7 @@ async def batch_processor():
         audio_bytes, future, start_time = item
         batch = [item]
         
-        logging.info(f"📥 Première tâche reçue. Attente de {BATCH_WINDOW}s pour grouper...")
+        logging.info(f"Première tâche reçue. Attente de {BATCH_WINDOW}s pour grouper...")
 
         # 2. Accumulation
         deadline = asyncio.get_event_loop().time() + BATCH_WINDOW
@@ -34,7 +33,7 @@ async def batch_processor():
         except asyncio.TimeoutError:
             pass # C'est normal, la fenêtre de temps est finie
 
-        logging.info(f"📦 Batch formé : {len(batch)} fichiers. Envoi à Whisper...")
+        logging.info(f"Batch formé : {len(batch)} fichiers. Envoi à Whisper...")
 
         # 3. Exécution parallèle
         tasks = [client.get_script_transcription_remote(b[0]) for b in batch]
