@@ -1,37 +1,26 @@
 services:
-  # 1. Le Load Balancer (Nginx) - Il distribue les requêtes aux workers
-  inference-lb:
-    image: nginx:alpine
-    container_name: whisper-lb
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "8001:80" # On garde le port 8001 pour tes tests externes
-    depends_on:
-      - inference-worker
-
-  # 2. Les Workers d'inférence (Réplicas de Faster-Whisper)
+  # 1. Les Workers d'inférence (Réplicas de Faster-Whisper)
   inference-worker:
       image: fedirz/faster-whisper-server:latest-cpu
       environment:
         - WHISPER_MODEL=tiny
         - WHISPER_DEVICE=cpu
         - WHISPER_COMPUTE_TYPE=int8 # On force l'int8
-        - OMP_NUM_THREADS=1
-        - OPENBLAS_NUM_THREADS=1
+        - WHISPER_CPU_THREADS=3
+        - WHISPER_WORKERS=2
       deploy:
-        replicas: 3 
+        replicas: 1 #Remettre 3 si test non fructuant  
         resources:
           limits:
-            cpus: '2.0'
-            memory: 3G
+            cpus: '6.0'
+            memory: 5G
       healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
         interval: 20s # Laisse plus de temps au démarrage (ton log montre 70s pour charger)
         timeout: 10s
         retries: 5
 
-  # 3. Ton API FastAPI
+  # 2. Ton API FastAPI
   api:
     build: .
     ports:
@@ -40,10 +29,8 @@ services:
       - DATABASE_URL=postgresql://user:password@db:5432/transcription_db
       # L'API pointe vers le Load Balancer (port 80 interne)
       - INFERENCE_SERVER_URL=http://inference-lb:80/v1/audio/transcriptions
-    depends_on:
-      - inference-lb
 
-  # 4. Observabilité
+  # 3. Observabilité
   prometheus:
     image: prom/prometheus
     volumes:

@@ -3,8 +3,9 @@ import logging
 import time
 
 import numpy as np
-from app.ressources import ModelClient
+#from app.ressources import ModelClient => commenté le temps de tester le batching maison
 from app.schemas.enums import ResponseType
+from app.services._batcher import transcription_queue
 from app.services.modules.audio import extract_audio_bytes
 from app.services.modules.subtitles import (generate_srt_string,
                                             merge_subtitles_hard,
@@ -13,10 +14,10 @@ from fastapi.concurrency import run_in_threadpool
 from prometheus_client import Counter, Histogram
 
 # Instanciation model 
-inference_client = ModelClient()
+#inference_client = ModelClient() => commenté le temps de tester le batching maison 
 
 # On garde le sémaphore pour ne pas saturer les workers Whisper
-ai_semaphore = asyncio.Semaphore(3)
+# ai_semaphore = asyncio.Semaphore(3) => commenté le temps de tester le batching maison 
 
 #Data Prometheus
 TRANSCRIPTION_COUNT = Counter(
@@ -50,12 +51,21 @@ async def transcription_service(
     try:
         # On délègue l'appel subprocess de FFmpeg au threadpool
         audio_bytes, media_duration = await run_in_threadpool(extract_audio_bytes, file_bytes)
+
+        # test batching
+        # Création d'une promesse (Future)
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+
+        await transcription_queue.put((audio_bytes, future, time.time()))
+        result = await future
         
-        # 3. Inférence (Asynchrone + Sémaphore)
+        # 3. Inférence (Asynchrone + Sémaphore) => commenté le temps de tester le batching maison 
+        """
         async with ai_semaphore:
             logging.info(f"AI Slot acquired for {file_name}")
             result = await inference_client.get_script_transcription_remote(audio_bytes)
-
+        """
         duration = time.time() - start_time
         TRANSCRIPTION_COUNT.labels(status="success", response_type=type_str).inc()
         TRANSCRIPTION_LATENCY.labels(response_type=type_str).observe(duration)

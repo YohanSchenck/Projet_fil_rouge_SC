@@ -5,7 +5,7 @@ import httpx
 
 class ModelClient:
     # 1. MISE À JOUR : Le endpoint pointe vers le Load Balancer défini dans docker-compose
-    def __init__(self, endpoint: str = "http://inference-lb:80/v1/audio/transcriptions"):
+    def __init__(self, endpoint: str = "http://inference-worker:8000/v1/audio/transcriptions"):
         self.endpoint = endpoint
 
     async def get_script_transcription_remote(self, audio_bytes: bytes):
@@ -13,7 +13,7 @@ class ModelClient:
         Envoie l'audio au Load Balancer qui distribue vers les workers Faster-Whisper.
         """
         # On garde le timeout à None pour le 'read' car la transcription CPU est longue
-        timeout = httpx.Timeout(connect=10.0, read=None, write=60.0, pool=None)
+        timeout = httpx.Timeout(connect=10.0, read=300.0, write=60.0, pool=None)
 
         async with httpx.AsyncClient(timeout=timeout) as client:
             files = {'file': ('audio.wav', audio_bytes, 'audio/wav')}
