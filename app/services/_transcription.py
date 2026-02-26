@@ -12,6 +12,9 @@ from app.services.modules.subtitles import (generate_srt_string,
 from fastapi.concurrency import run_in_threadpool
 from prometheus_client import Counter, Histogram
 
+# Instanciation model 
+inference_client = ModelClient()
+
 # On garde le sémaphore pour ne pas saturer les workers Whisper
 ai_semaphore = asyncio.Semaphore(3)
 
@@ -49,7 +52,6 @@ async def transcription_service(
         audio_bytes, media_duration = await run_in_threadpool(extract_audio_bytes, file_bytes)
         
         # 3. Inférence (Asynchrone + Sémaphore)
-        inference_client = ModelClient()
         async with ai_semaphore:
             logging.info(f"AI Slot acquired for {file_name}")
             result = await inference_client.get_script_transcription_remote(audio_bytes)
