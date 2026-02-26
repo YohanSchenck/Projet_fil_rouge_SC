@@ -13,7 +13,7 @@ templates = Jinja2Templates(directory="app/routers/templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def upload_page(request: Request):
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return templates.TemplateResponse(request, "upload.html")
 
 @router.post("/transcribe", name="transcribe")
 async def transcribe(
