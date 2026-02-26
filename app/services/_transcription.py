@@ -11,7 +11,7 @@ from app.services.modules.subtitles import (generate_srt_string,
                                             merge_subtitles_hard,
                                             merge_subtitles_soft)
 from fastapi.concurrency import run_in_threadpool
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 # Instanciation model 
 #inference_client = ModelClient() => commenté le temps de tester le batching maison 
@@ -38,6 +38,11 @@ MEDIA_DURATION_TOTAL = Counter(
     ['response_type']
 )
 
+QUEUE_SIZE = Gauge(
+    'transcription_queue_size', 
+    'Nombre de fichiers actuellement en attente dans la file'
+)
+
 
 async def transcription_service(
     file_bytes: bytes, 
@@ -57,6 +62,7 @@ async def transcription_service(
         loop = asyncio.get_running_loop()
         future = loop.create_future()
 
+        QUEUE_SIZE.inc()
         await transcription_queue.put((audio_bytes, future, time.time()))
         result = await future
         
@@ -66,10 +72,13 @@ async def transcription_service(
             logging.info(f"AI Slot acquired for {file_name}")
             result = await inference_client.get_script_transcription_remote(audio_bytes)
         """
+
+        QUEUE_SIZE.dec()
         duration = time.time() - start_time
         TRANSCRIPTION_COUNT.labels(status="success", response_type=type_str).inc()
         TRANSCRIPTION_LATENCY.labels(response_type=type_str).observe(duration)
         MEDIA_DURATION_TOTAL.labels(response_type=response_type.value).inc(media_duration)
+
         
         # 4. Traitement de la sortie
         if response_type == ResponseType.TEXT:
