@@ -9,7 +9,7 @@ class ModelClient:
 
     async def get_script_transcription_remote(self, audio_bytes: bytes):
         """
-        Envoie l'audio au Load Balancer qui distribue vers les workers Faster-Whisper.
+        Envoie l'audio à Faster-Whisper.
         """
         timeout = httpx.Timeout(connect=10.0, read=300.0, write=60.0, pool=None)
 
@@ -35,5 +35,5 @@ class ModelClient:
                 logging.error(f"Erreur serveur d'inférence ({e.response.status_code}): {e.response.text}")
                 raise
             except httpx.RequestError as e:
-                logging.error(f"Erreur de communication avec le Load Balancer: {e}")
+                logging.error(f"Erreur de communication avec le faster whisper: {e}")
                 raise

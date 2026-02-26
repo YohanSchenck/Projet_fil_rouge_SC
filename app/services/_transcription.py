@@ -86,5 +86,6 @@ async def transcription_service(
     
     except Exception as e:
         # En cas d'erreur :
+        QUEUE_SIZE.dec()
         TRANSCRIPTION_COUNT.labels(status="error", response_type=type_str).inc()
         raise e
